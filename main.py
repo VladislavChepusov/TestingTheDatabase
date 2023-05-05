@@ -13,21 +13,6 @@ from datetime import date
 from faker import Faker
 import random
 
-# region Объявления
-
-# Создание объекта Engine для подключения к серверу PostgreSQL
-engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
-
-# Подключение к базе данных
-# engine.dispose()
-# engine = create_engine(DB_CONNECTION.format(**params))
-
-# Создайте фабрику сеансов
-Session = sessionmaker(bind=engine)
-
-
-# endregion
-
 
 # region Функции
 def Create_Table():
@@ -85,6 +70,7 @@ def add_person(name, birthdate, gender, session):
     )
     session.add(person)
 
+
 # БОЛЬШИЕ ЗНАЧЕНИЯ ПОСТАВИТЬ !!!
 def autoGenerationRecords():
     faker = Faker()
@@ -140,17 +126,24 @@ def select_data():
 # endregion
 
 
-# Получить объект сеанса
-
-
-# Create_Table()
-# AddSingleEntry()
-
-
 if __name__ == '__main__':
+    # region Объявления
+
+    # Создание объекта Engine для подключения к серверу PostgreSQL
+    engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
+
+    # Подключение к базе данных
+    # engine.dispose()
+    # engine = create_engine(DB_CONNECTION.format(**params))
+
+    # Создайте фабрику сеансов
+    Session = sessionmaker(bind=engine)
+
+    # endregion
     # Проверка наличия базы данных
     if not database_exists(engine.url):
         create_database(engine.url)
+
     x = int(input("Ввод = "))
     if x == 1:
         Create_Table()
