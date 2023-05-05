@@ -1,38 +1,29 @@
-from sqlalchemy import create_engine, Column, Integer, String, Date, inspect
+import time
+
+from sqlalchemy import create_engine, Column, Integer, String, Date, inspect, Enum
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import create_database, database_exists
 import sys
-from config import params
+
+from Gender import Gender
+from Person import Person, Base
+from config import params, TABLE_NAME, DB_CONNECTION
 from datetime import date
+from faker import Faker
+import random
 
 # region Объявления
 
-# Строка подключения к серверу PostgreSQL
-DB_CONNECTION = 'postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}'
-TABLE_NAME = "people"
 # Создание объекта Engine для подключения к серверу PostgreSQL
 engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
+
 # Подключение к базе данных
 # engine.dispose()
 # engine = create_engine(DB_CONNECTION.format(**params))
 
 # Создайте фабрику сеансов
 Session = sessionmaker(bind=engine)
-
-
-# Создайте базовый класс для нашей модели ORM
-class Base(DeclarativeBase):
-    pass
-
-
-# Определите класс для нашей таблицы
-class Person(Base):
-    __tablename__ = TABLE_NAME
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String)
-    date_of_birth = Column(Date)
-    gender = Column(String)
 
 
 # endregion
@@ -44,17 +35,19 @@ def Create_Table():
     if inspector.has_table(TABLE_NAME):
         print('Table already exists')
     else:
-        print('Table does not exist')
+        # print('Table does not exist')
         # Создайте базу данных и таблицу
         Base.metadata.create_all(engine)
+        print('The table has been created')
 
-# ДОПИСАТЬ ВВОД
+
+# ДОПИСАТЬ ВВОД!!!!!!!!!!!!!
 def AddSingleEntry():
     session = Session()
     Create_Table()
-    person1 = Person(name='John Smith', date_of_birth='1990-01-01', gender='Male')
-    person2 = Person(name='Jane Doe', date_of_birth='1995-01-01', gender='Female')
-    # session.add_all([person1, person2])
+    person1 = Person(name='John Smith', date_of_birth='1990-01-01', gender=Gender.MALE)
+    person2 = Person(name='Jane Doe', date_of_birth='1995-01-01', gender=random.choice(list(Gender)))
+    session.add_all([person1, person2])
     session.add(person1)
 
     session.commit()
@@ -79,9 +72,64 @@ def Output_All():
     else:
         for person in people:
             age = get_age(person.date_of_birth)
-            print(f"{person.name}, {person.date_of_birth}, {person.gender}, {age} years old")
+            print(f"{person.name}, {person.date_of_birth}, {person.gender.name}, {age} years old")
 
     session.close()
+
+
+def add_person(name, birthdate, gender, session):
+    person = Person(
+        name=name,
+        date_of_birth=birthdate,
+        gender=gender
+    )
+    session.add(person)
+
+# БОЛЬШИЕ ЗНАЧЕНИЯ ПОСТАВИТЬ !!!
+def autoGenerationRecords():
+    faker = Faker()
+    session = Session()
+    # Заполняем 1 млн строк
+    for i in range(10):
+        birthdate = faker.date_of_birth()
+        gender = random.choice(list(Gender))
+        if gender == Gender.MALE:
+            first_name = faker.name_male()
+        else:
+            first_name = faker.name_female()
+        add_person(first_name, birthdate, gender, session)
+
+    # Заполнение автоматически 100 строк в которых пол мужской и ФИО начинается с "F".
+    for i in range(10):
+        while True:
+            name = faker.name_male()
+            if name.startswith('F'):
+                break
+        birthdate = faker.date_of_birth()
+        gender = Gender.MALE
+        add_person(name, birthdate, gender, session)
+    session.commit()
+
+
+# Функция для выполнения запроса к базе данных и замера времени
+def select_data():
+    try:
+        # Выполняем запрос к базе данных
+        start_time = time.time()
+        session = Session()
+        query = session.query(Person).filter(Person.gender == Gender.MALE, Person.name.like('F%'))
+        result = query.all()
+        end_time = time.time()
+
+        # Выводим результаты
+        for person in result:
+            age = get_age(person.date_of_birth)
+            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender}, Age: {age}")
+
+        print(f"Total rows: {len(result)}")
+        print(f"Execution time: {end_time - start_time:.2f} seconds")
+    except Exception as e:
+        print(f"Error: {str(e)}")
 
 
 # def main(*args):
@@ -110,5 +158,9 @@ if __name__ == '__main__':
         AddSingleEntry()
     if x == 3:
         Output_All()
+    if x == 4:
+        autoGenerationRecords()
+    if x == 5:
+        select_data()
 
     # main(*sys.argv[1:])
