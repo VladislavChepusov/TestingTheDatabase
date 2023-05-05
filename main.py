@@ -1,21 +1,21 @@
+import random
+import sys
 import time
+from datetime import date
 
-from sqlalchemy import create_engine, Column, Integer, String, Date, inspect, Enum
-from sqlalchemy.orm import DeclarativeBase
+from faker import Faker
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import create_database, database_exists
-import sys
+from sqlalchemy.exc import OperationalError
 
 from Gender import Gender
 from Person import Person, Base
 from config import params, TABLE_NAME, DB_CONNECTION
-from datetime import date
-from faker import Faker
-import random
 
 
 # region Функции
-def Create_Table():
+def CreateTable():
     inspector = inspect(engine)
     if inspector.has_table(TABLE_NAME):
         print('Table already exists')
@@ -25,16 +25,16 @@ def Create_Table():
         Base.metadata.create_all(engine)
         print('The table has been created')
 
+# МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
+def CheckingInput():
+    pass
 
-# ДОПИСАТЬ ВВОД!!!!!!!!!!!!!
+
+# # МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
 def AddSingleEntry():
     session = Session()
-    Create_Table()
-    person1 = Person(name='John Smith', date_of_birth='1990-01-01', gender=Gender.MALE)
-    person2 = Person(name='Jane Doe', date_of_birth='1995-01-01', gender=random.choice(list(Gender)))
-    session.add_all([person1, person2])
-    session.add(person1)
-
+    CreateTable()
+    add_person('John Smith', '1990-01-01', Gender.MALE, session)
     session.commit()
     session.close()
 
@@ -46,8 +46,8 @@ def get_age(birthdate):
     return age
 
 
-# Вывод всех строк с уникальным значением ФИО+дата, отсортированным по ФИО
-def Output_All():
+# Вывод всех строк с уникальным значением ФИО + дата, отсортированным по ФИО
+def OutputAll():
     session = Session()
     people = session.query(Person) \
         .distinct(Person.name, Person.date_of_birth) \
@@ -57,8 +57,8 @@ def Output_All():
     else:
         for person in people:
             age = get_age(person.date_of_birth)
-            print(f"{person.name}, {person.date_of_birth}, {person.gender.name}, {age} years old")
-
+            # print(f"{person.name}, {person.date_of_birth}, {person.gender.name}, {age} years old")
+            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender.name}, Age: {age}")
     session.close()
 
 
@@ -70,9 +70,9 @@ def add_person(name, birthdate, gender, session):
     )
     session.add(person)
 
-
+# МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
 # БОЛЬШИЕ ЗНАЧЕНИЯ ПОСТАВИТЬ !!!
-def autoGenerationRecords():
+def AutoGenerationRecords():
     faker = Faker()
     session = Session()
     # Заполняем 1 млн строк
@@ -95,10 +95,11 @@ def autoGenerationRecords():
         gender = Gender.MALE
         add_person(name, birthdate, gender, session)
     session.commit()
+    session.close()
 
 
 # Функция для выполнения запроса к базе данных и замера времени
-def select_data():
+def SelectData():
     try:
         # Выполняем запрос к базе данных
         start_time = time.time()
@@ -110,10 +111,11 @@ def select_data():
         # Выводим результаты
         for person in result:
             age = get_age(person.date_of_birth)
-            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender}, Age: {age}")
+            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender.name}, Age: {age}")
 
         print(f"Total rows: {len(result)}")
         print(f"Execution time: {end_time - start_time:.2f} seconds")
+        session.close()
     except Exception as e:
         print(f"Error: {str(e)}")
 
@@ -125,19 +127,21 @@ def select_data():
 
 # endregion
 
-
+# МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
 if __name__ == '__main__':
-    # region Объявления
-
-    # Создание объекта Engine для подключения к серверу PostgreSQL
-    engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
-
-    # Подключение к базе данных
-    # engine.dispose()
-    # engine = create_engine(DB_CONNECTION.format(**params))
-
-    # Создайте фабрику сеансов
-    Session = sessionmaker(bind=engine)
+    # region Объявления/Подключение
+    try:
+        # Создание объекта Engine для подключения к серверу PostgresSQL
+        engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
+        engine.connect()
+    except OperationalError as e:
+        print("Connection failed:", e)
+        sys.exit()
+    try:
+        # Создайте фабрику сеансов
+        Session = sessionmaker(bind=engine)
+    except Exception as e:
+        print(f"Error: {str(e)}")
 
     # endregion
     # Проверка наличия базы данных
@@ -146,14 +150,16 @@ if __name__ == '__main__':
 
     x = int(input("Ввод = "))
     if x == 1:
-        Create_Table()
+        CreateTable()
     if x == 2:
         AddSingleEntry()
     if x == 3:
-        Output_All()
+        OutputAll()
     if x == 4:
-        autoGenerationRecords()
+        AutoGenerationRecords()
     if x == 5:
-        select_data()
+        SelectData()
+
+    engine.dispose()
 
     # main(*sys.argv[1:])
