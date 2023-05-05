@@ -15,6 +15,8 @@ from config import params, TABLE_NAME, DB_CONNECTION
 
 
 # region Функции
+
+# Создание таблицы в БД
 def CreateTable():
     inspector = inspect(engine)
     if inspector.has_table(TABLE_NAME):
@@ -25,16 +27,13 @@ def CreateTable():
         Base.metadata.create_all(engine)
         print('The table has been created')
 
-# МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
-def CheckingInput():
-    pass
-
 
 # # МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
-def AddSingleEntry():
+def AddSingleEntry(arg):
     session = Session()
     CreateTable()
-    add_person('John Smith', '1990-01-01', Gender.MALE, session)
+    add_person(f"{arg[0]} {arg[1]}", arg[2], Gender(arg[3]), session)
+    # add_person('John Smith', '1990-01-01', Gender.MALE, session)
     session.commit()
     session.close()
 
@@ -58,10 +57,13 @@ def OutputAll():
         for person in people:
             age = get_age(person.date_of_birth)
             # print(f"{person.name}, {person.date_of_birth}, {person.gender.name}, {age} years old")
-            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender.name}, Age: {age}")
+            print(
+                f"Full name: {person.name}, Birth date: {person.date_of_birth}, "
+                f"Gender: {person.gender.name}, Age: {age}")
     session.close()
 
 
+# Вспомогательная функция добавления данных в БД
 def add_person(name, birthdate, gender, session):
     person = Person(
         name=name,
@@ -69,6 +71,7 @@ def add_person(name, birthdate, gender, session):
         gender=gender
     )
     session.add(person)
+
 
 # МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
 # БОЛЬШИЕ ЗНАЧЕНИЯ ПОСТАВИТЬ !!!
@@ -111,24 +114,73 @@ def SelectData():
         # Выводим результаты
         for person in result:
             age = get_age(person.date_of_birth)
-            print(f"Full name: {person.name}, Birth date: {person.date_of_birth}, Gender: {person.gender.name}, Age: {age}")
+            print(
+                f"Full name: {person.name}, Birth date: {person.date_of_birth}, "
+                f"Gender: {person.gender.name}, Age: {age}")
 
         print(f"Total rows: {len(result)}")
         print(f"Execution time: {end_time - start_time:.2f} seconds")
         session.close()
-    except Exception as e:
-        print(f"Error: {str(e)}")
+    except Exception as er:
+        print(f"Error: {str(er)}")
 
 
-# def main(*args):
-#     for arg in args:
-#         print(arg)
+
+# ДОПИСАТЬ
+def main(*args):
+    if args[0] == "1":
+        print("Один")
+
+    elif args[0] == "2":
+        print("Два")
+        if check_arguments(args):
+            AddSingleEntry(args[1:])
+        else:
+            print("Invalid input.Try the following input format."
+                  "<Operation Number> <Name> <Last name> <Date Of Birth> <Gender>"
+                  "Example: 2 John Nash 13-06-1928 M")
+            exit()
+
+    elif args[0] == "3":
+        print("три")
+
+    elif args[0] == "4":
+        print("четыре")
+
+    elif args[0] == "5":
+        print("Пять")
+
+    else:
+        print("Invalid input")
+    for arg in args:
+        print(arg)
+
+
+# Проверка вводимых аргументов
+def check_arguments(argv):
+    if len(argv) != 5:
+        return False
+    if not isinstance(argv[1], str):
+        return False
+    if not isinstance(argv[2], str):
+        return False
+    try:
+        date.fromisoformat(argv[3])
+    except ValueError:
+        print(f"Дата ???? {argv[3]}")
+        return False
+    if argv[4] not in ["F", "M"]:
+        print("Пол")
+        return False
+    return True
 
 
 # endregion
 
 # МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
 if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        main(*sys.argv[1:])
     # region Объявления/Подключение
     try:
         # Создание объекта Engine для подключения к серверу PostgresSQL
@@ -152,7 +204,15 @@ if __name__ == '__main__':
     if x == 1:
         CreateTable()
     if x == 2:
-        AddSingleEntry()
+        DATA = input().split()
+        if check_arguments(DATA):
+            AddSingleEntry(DATA[1:])
+        else:
+            print("Invalid input.Try the following input format."
+                  "<Operation Number> <Name> <Last name> <Date Of Birth> <Gender>"
+                  "Example: 2 John Nash 13-06-1928 M")
+            exit()
+
     if x == 3:
         OutputAll()
     if x == 4:
@@ -161,5 +221,3 @@ if __name__ == '__main__':
         SelectData()
 
     engine.dispose()
-
-    # main(*sys.argv[1:])
