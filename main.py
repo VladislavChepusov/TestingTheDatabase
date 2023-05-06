@@ -13,28 +13,46 @@ from Gender import Gender
 from Person import Person, Base
 from config import params, TABLE_NAME, DB_CONNECTION
 
+# region БАЗОВЫЕ ОБЪЯВЛЕНИЯ/ПОДКЛЮЧЕНИЯ
+try:
+    # Создание объекта Engine для подключения к серверу PostgresSQL
+    engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
+    # Проверка наличия базы данных
+    if not database_exists(engine.url):
+        create_database(engine.url)
+    engine.connect()
+except OperationalError as e:
+    print("Connection failed:", e)
+    sys.exit()
+try:
+    # Создайте фабрику сеансов
+    Session = sessionmaker(bind=engine)
+except Exception as e:
+    print(f"Error: {str(e)}")
+    sys.exit()
 
-# region Функции
+# endregion
+
+
+# region ФУНКЦИИ
 
 # Создание таблицы в БД
 def CreateTable():
     inspector = inspect(engine)
-    if inspector.has_table(TABLE_NAME):
-        print('Table already exists')
-    else:
-        # print('Table does not exist')
+    if not inspector.has_table(TABLE_NAME):
         # Создайте базу данных и таблицу
         Base.metadata.create_all(engine)
         print('The table has been created')
 
 
-# # МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
+# Добавление записи в БД
 def AddSingleEntry(arg):
     session = Session()
     CreateTable()
     add_person(f"{arg[0]} {arg[1]}", arg[2], Gender(arg[3]), session)
     # add_person('John Smith', '1990-01-01', Gender.MALE, session)
     session.commit()
+    print(f"Data added: {arg[0]} {arg[1]} {arg[2]} {Gender(arg[3]).name}")
     session.close()
 
 
@@ -48,6 +66,7 @@ def get_age(birthdate):
 # Вывод всех строк с уникальным значением ФИО + дата, отсортированным по ФИО
 def OutputAll():
     session = Session()
+    CreateTable()
     people = session.query(Person) \
         .distinct(Person.name, Person.date_of_birth) \
         .order_by(Person.name).all()
@@ -78,8 +97,9 @@ def add_person(name, birthdate, gender, session):
 def AutoGenerationRecords():
     faker = Faker()
     session = Session()
+    CreateTable()
     # Заполняем 1 млн строк
-    for i in range(10):
+    for i in range(1000000):
         birthdate = faker.date_of_birth()
         gender = random.choice(list(Gender))
         if gender == Gender.MALE:
@@ -89,7 +109,7 @@ def AutoGenerationRecords():
         add_person(first_name, birthdate, gender, session)
 
     # Заполнение автоматически 100 строк в которых пол мужской и ФИО начинается с "F".
-    for i in range(10):
+    for i in range(100):
         while True:
             name = faker.name_male()
             if name.startswith('F'):
@@ -98,6 +118,7 @@ def AutoGenerationRecords():
         gender = Gender.MALE
         add_person(name, birthdate, gender, session)
     session.commit()
+    print("Data created")
     session.close()
 
 
@@ -105,12 +126,12 @@ def AutoGenerationRecords():
 def SelectData():
     try:
         # Выполняем запрос к базе данных
-        start_time = time.time()
         session = Session()
+        CreateTable()
+        start_time = time.time()
         query = session.query(Person).filter(Person.gender == Gender.MALE, Person.name.like('F%'))
         result = query.all()
         end_time = time.time()
-
         # Выводим результаты
         for person in result:
             age = get_age(person.date_of_birth)
@@ -125,35 +146,27 @@ def SelectData():
         print(f"Error: {str(er)}")
 
 
-
-# ДОПИСАТЬ
+# Основная функция
 def main(*args):
     if args[0] == "1":
-        print("Один")
-
+        CreateTable()
     elif args[0] == "2":
-        print("Два")
         if check_arguments(args):
             AddSingleEntry(args[1:])
         else:
             print("Invalid input.Try the following input format."
-                  "<Operation Number> <Name> <Last name> <Date Of Birth> <Gender>"
-                  "Example: 2 John Nash 13-06-1928 M")
-            exit()
-
+                  "<Operation Number> <Name> <Last name> <Date Of Birth: yyyy-mm-dd> <Gender: F or M>"
+                  "Example: 2 John Nash 1928-06-13 M")
+            sys.exit()
     elif args[0] == "3":
-        print("три")
-
+        OutputAll()
     elif args[0] == "4":
-        print("четыре")
-
+        AutoGenerationRecords()
     elif args[0] == "5":
-        print("Пять")
-
+        SelectData()
     else:
         print("Invalid input")
-    for arg in args:
-        print(arg)
+    engine.dispose()
 
 
 # Проверка вводимых аргументов
@@ -167,57 +180,16 @@ def check_arguments(argv):
     try:
         date.fromisoformat(argv[3])
     except ValueError:
-        print(f"Дата ???? {argv[3]}")
         return False
     if argv[4] not in ["F", "M"]:
-        print("Пол")
         return False
     return True
 
-
 # endregion
 
-# МОДИЦИКАЦИЯ НУЖНА ТУТ !!!!!!
+
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         main(*sys.argv[1:])
-    # region Объявления/Подключение
-    try:
-        # Создание объекта Engine для подключения к серверу PostgresSQL
-        engine = create_engine(DB_CONNECTION.format(**params), isolation_level='AUTOCOMMIT')
-        engine.connect()
-    except OperationalError as e:
-        print("Connection failed:", e)
-        sys.exit()
-    try:
-        # Создайте фабрику сеансов
-        Session = sessionmaker(bind=engine)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-
-    # endregion
-    # Проверка наличия базы данных
-    if not database_exists(engine.url):
-        create_database(engine.url)
-
-    x = int(input("Ввод = "))
-    if x == 1:
-        CreateTable()
-    if x == 2:
-        DATA = input().split()
-        if check_arguments(DATA):
-            AddSingleEntry(DATA[1:])
-        else:
-            print("Invalid input.Try the following input format."
-                  "<Operation Number> <Name> <Last name> <Date Of Birth> <Gender>"
-                  "Example: 2 John Nash 13-06-1928 M")
-            exit()
-
-    if x == 3:
-        OutputAll()
-    if x == 4:
-        AutoGenerationRecords()
-    if x == 5:
-        SelectData()
-
-    engine.dispose()
+    else:
+        print("Invalid input.Enter the parameters")
